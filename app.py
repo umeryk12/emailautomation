@@ -550,29 +550,62 @@ def run_campaign(campaign_id: int):
             with open(template_file, 'w', encoding='utf-8') as f:
                 f.write(template_content)
             
-            # Initialize email automation
+            # Initialize email automation with the config file
             automation = EmailAutomation(config_file=config_file)
+            
+            # Reload config to ensure it has the latest SMTP credentials
+            automation.config = user_config
             
             # Override template loading
             automation.load_email_template = lambda: open(template_file, 'r', encoding='utf-8').read()
             
-            # Load companies
-            companies = automation.load_companies_from_csv(csv_file, skip_sent=True, include_dry_run=True)
+            # Load companies - don't skip dry_run emails for new campaigns
+            # Only skip actually sent emails
+            companies = automation.load_companies_from_csv(csv_file, skip_sent=False, include_dry_run=False)
             
             # Apply email limit if set
             if campaign.email_limit and campaign.email_limit > 0:
                 companies = companies[:campaign.email_limit]
             
+            if not companies:
+                campaign.status = 'failed'
+                campaign.failed_emails = 1
+                db.session.commit()
+                print(f"Campaign {campaign_id} failed: No companies to process")
+                return
+            
             campaign.total_emails = len(companies)
             db.session.commit()
             
+            # Log that we're about to send emails
+            print(f"Campaign {campaign_id}: Starting to send {len(companies)} emails using {user.smtp_email}")
+            print(f"Campaign {campaign_id}: SMTP server: {user.smtp_server}:{user.smtp_port}")
+            
             # Run automation with user's SMTP credentials (actual sending)
-            automation.run(csv_file=csv_file, dry_run=False, skip_sent=True)
+            # Set include_dry_run=False so we process all emails, not just new ones
+            automation.run(csv_file=csv_file, dry_run=False, skip_sent=False, include_dry_run=False)
             
             # Update campaign status
             campaign.sent_emails = automation.sent_count
             campaign.failed_emails = automation.failed_count
-            campaign.status = 'completed'
+            
+            # Save results to CSV for tracking
+            if automation.results:
+                results_file = f"user_data/user_{campaign.user_id}_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+                with open(results_file, 'w', newline='', encoding='utf-8') as f:
+                    if automation.results:
+                        writer = csv.DictWriter(f, fieldnames=automation.results[0].keys())
+                        writer.writeheader()
+                        writer.writerows(automation.results)
+                print(f"Campaign {campaign_id}: Results saved to {results_file}")
+            
+            print(f"Campaign {campaign_id}: Sent {automation.sent_count}, Failed {automation.failed_count}")
+            
+            if automation.sent_count > 0 or automation.failed_count == 0:
+                campaign.status = 'completed'
+            else:
+                campaign.status = 'failed'
+            
             campaign.completed_at = datetime.utcnow()
             db.session.commit()
             

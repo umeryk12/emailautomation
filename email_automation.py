@@ -68,12 +68,13 @@ class EmailAutomation:
                     reader = csv.DictReader(f)
                     for row in reader:
                         status = row.get('status', '').lower()
-                        # Include both 'sent' and 'dry_run' emails
+                        # Include both 'sent' and 'dry_run' emails only if include_dry_run is True
                         if status == 'sent' or (include_dry_run and status == 'dry_run'):
                             email = row.get('email', '').strip()
                             if email:
                                 sent_emails.add(email.lower())
-            except:
+            except Exception as e:
+                logging.debug(f"Error reading result file {file}: {e}")
                 pass
         
         return sent_emails
@@ -301,18 +302,19 @@ This email was sent via automated cold email tool.
                 )
                 
                 # Double-check: Verify email hasn't been sent before (real-time check)
-                # Check for both sent emails and dry runs to prevent duplicates
-                current_sent_emails = self.load_sent_emails(include_dry_run=True)
-                if company['founder_email'].lower() in current_sent_emails:
-                    logging.warning(f"Skipping {company['company_name']} - Email {company['founder_email']} was already sent (duplicate detected)")
-                    self.failed_count += 1
-                    self.results.append({
-                        'company': company['company_name'],
-                        'email': company['founder_email'],
-                        'status': 'skipped_duplicate',
-                        'timestamp': datetime.now().isoformat()
-                    })
-                    continue
+                # Only check if skip_sent is True
+                if skip_sent:
+                    current_sent_emails = self.load_sent_emails(include_dry_run=include_dry_run if include_dry_run is not None else True)
+                    if company['founder_email'].lower() in current_sent_emails:
+                        logging.warning(f"Skipping {company['company_name']} - Email {company['founder_email']} was already sent (duplicate detected)")
+                        self.failed_count += 1
+                        self.results.append({
+                            'company': company['company_name'],
+                            'email': company['founder_email'],
+                            'status': 'skipped_duplicate',
+                            'timestamp': datetime.now().isoformat()
+                        })
+                        continue
                 
                 if dry_run:
                     logging.info(f"[DRY RUN] Would send email {i}/{len(companies)}:")
