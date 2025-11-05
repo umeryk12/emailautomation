@@ -23,9 +23,13 @@ from email_automation import EmailAutomation
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 # Use DATABASE_URL if provided (for production), otherwise SQLite
-database_url = os.environ.get('DATABASE_URL', 'sqlite:///email_automation.db')
-if database_url.startswith('postgres://'):
-    database_url = database_url.replace('postgres://', 'postgresql://', 1)
+database_url = os.environ.get('DATABASE_URL')
+if not database_url:
+    # For Railway, use PostgreSQL if available, otherwise fallback to SQLite with proper path
+    database_url = 'sqlite:///' + os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'email_automation.db')
+else:
+    if database_url.startswith('postgres://'):
+        database_url = database_url.replace('postgres://', 'postgresql://', 1)
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = 'user_templates'

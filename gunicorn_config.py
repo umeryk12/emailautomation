@@ -5,8 +5,8 @@ import multiprocessing
 bind = "0.0.0.0:5000"
 backlog = 2048
 
-# Worker processes
-workers = multiprocessing.cpu_count() * 2 + 1
+# Worker processes - Reduced for Railway free tier
+workers = 2  # Reduced from cpu_count * 2 + 1 to prevent OOM
 worker_class = "sync"
 worker_connections = 1000
 timeout = 30
