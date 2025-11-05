@@ -54,6 +54,13 @@ class User(UserMixin, db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_active = db.Column(db.Boolean, default=True)
     
+    # Email SMTP settings (encrypted/optional)
+    smtp_email = db.Column(db.String(120), nullable=True)
+    smtp_password = db.Column(db.String(255), nullable=True)  # Store app password (encrypted in production)
+    smtp_server = db.Column(db.String(100), default='smtp.gmail.com')
+    smtp_port = db.Column(db.Integer, default=587)
+    sender_name = db.Column(db.String(100), nullable=True)
+    
     # Relationships
     templates = db.relationship('EmailTemplate', backref='user', lazy=True, cascade='all, delete-orphan')
     campaigns = db.relationship('Campaign', backref='user', lazy=True, cascade='all, delete-orphan')
@@ -453,13 +460,21 @@ def run_campaign(campaign_id: int):
             # Get email list file
             csv_file = get_email_list_path(campaign.email_list_type)
             
-            # Create user-specific config
+            # Check if user has SMTP credentials configured
+            if not user.smtp_email or not user.smtp_password:
+                campaign.status = 'failed'
+                campaign.failed_emails = 1
+                db.session.commit()
+                print(f"Campaign {campaign_id} failed: User has not configured SMTP credentials")
+                return
+            
+            # Create user-specific config using user's SMTP settings
             user_config = {
-                'smtp_server': 'smtp.gmail.com',
-                'smtp_port': 587,
-                'sender_email': user.email,  # Use user's email
-                'sender_password': '',  # User needs to set this up
-                'sender_name': user.username,
+                'smtp_server': user.smtp_server or 'smtp.gmail.com',
+                'smtp_port': user.smtp_port or 587,
+                'sender_email': user.smtp_email,
+                'sender_password': user.smtp_password,  # User's app password
+                'sender_name': user.sender_name or user.username,
                 'delay_between_emails': 30,
                 'max_emails_per_day': 50,
                 'email_subject_template': subject_template,
@@ -492,9 +507,8 @@ def run_campaign(campaign_id: int):
             campaign.total_emails = len(companies)
             db.session.commit()
             
-            # Run automation (dry run for now - users need to configure SMTP)
-            # In production, you'd want users to provide their SMTP credentials
-            automation.run(csv_file=csv_file, dry_run=True, skip_sent=True)
+            # Run automation with user's SMTP credentials (actual sending)
+            automation.run(csv_file=csv_file, dry_run=False, skip_sent=True)
             
             # Update campaign status
             campaign.sent_emails = automation.sent_count

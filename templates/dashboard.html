@@ -58,6 +58,56 @@
     </div>
 </div>
 
+<!-- Email Settings -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-envelope me-2"></i>Email Configuration</h5>
+            </div>
+            <div class="card-body">
+                <div id="settings-alert"></div>
+                <p class="text-muted mb-3">Configure your email account to send emails. You'll need a Gmail App Password.</p>
+                <form id="emailSettingsForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="smtp_email" class="form-label">Your Email Address</label>
+                            <input type="email" class="form-control" id="smtp_email" placeholder="your.email@gmail.com" required>
+                            <small class="text-muted">Email address to send from</small>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="smtp_password" class="form-label">App Password</label>
+                            <input type="password" class="form-control" id="smtp_password" placeholder="Enter Gmail App Password" required>
+                            <small class="text-muted">
+                                <a href="https://myaccount.google.com/apppasswords" target="_blank">Get Gmail App Password</a>
+                            </small>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="sender_name" class="form-label">Sender Name</label>
+                            <input type="text" class="form-control" id="sender_name" placeholder="Your Name">
+                            <small class="text-muted">Name recipients will see</small>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label for="smtp_server" class="form-label">SMTP Server</label>
+                            <input type="text" class="form-control" id="smtp_server" value="smtp.gmail.com">
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label for="smtp_port" class="form-label">Port</label>
+                            <input type="number" class="form-control" id="smtp_port" value="587">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-save me-2"></i>Save Email Settings
+                    </button>
+                </form>
+                <div id="settings-status" class="mt-3"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Start New Campaign -->
 <div class="row mb-4">
     <div class="col-12">
@@ -334,6 +384,46 @@ $(document).ready(function() {
     updateStats();
     setInterval(updateStats, 5000); // Update every 5 seconds
     
+    // Load email settings
+    loadEmailSettings();
+    
+    // Email settings form
+    $('#emailSettingsForm').on('submit', function(e) {
+        e.preventDefault();
+        const formData = {
+            smtp_email: $('#smtp_email').val(),
+            smtp_password: $('#smtp_password').val(),
+            smtp_server: $('#smtp_server').val(),
+            smtp_port: $('#smtp_port').val(),
+            sender_name: $('#sender_name').val()
+        };
+        
+        const btn = $(this).find('button[type="submit"]');
+        const originalText = btn.html();
+        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>Saving...');
+        
+        $.ajax({
+            url: '/api/settings',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(formData),
+            success: function(response) {
+                if (response.success) {
+                    showAlert('settings-alert', 'success', response.message || 'Email settings saved successfully!');
+                    $('#settings-status').html('<div class="alert alert-success"><i class="fas fa-check-circle me-2"></i>Email configured! You can now start campaigns.</div>');
+                } else {
+                    showAlert('settings-alert', 'danger', response.message || 'Failed to save settings');
+                }
+                btn.prop('disabled', false).html(originalText);
+            },
+            error: function(xhr) {
+                const response = xhr.responseJSON;
+                showAlert('settings-alert', 'danger', response?.message || 'An error occurred');
+                btn.prop('disabled', false).html(originalText);
+            }
+        });
+    });
+    
     // Template option switching
     $('input[name="template_option"]').on('change', function() {
         const option = $(this).val();
@@ -364,6 +454,13 @@ $(document).ready(function() {
             email_list_type: email_list_type,
             email_limit: parseInt(email_limit) || 0
         };
+        
+        // Check if email is configured
+        if (!$('#smtp_email').val() || !$('#smtp_password').val()) {
+            showAlert('campaign-alert', 'warning', 'Please configure your email settings first (above) before starting a campaign.');
+            $('html, body').animate({ scrollTop: $('#emailSettingsForm').offset().top - 100 }, 500);
+            return;
+        }
         
         // Handle template based on selected option
         if (template_option === 'saved') {
