@@ -411,6 +411,50 @@ def list_campaigns():
         } for c in campaigns]
     })
 
+@app.route('/api/settings', methods=['GET', 'POST'])
+@login_required
+def email_settings():
+    """Get or update user's email SMTP settings"""
+    if request.method == 'GET':
+        return jsonify({
+            'success': True,
+            'settings': {
+                'smtp_email': current_user.smtp_email or '',
+                'smtp_server': current_user.smtp_server or 'smtp.gmail.com',
+                'smtp_port': current_user.smtp_port or 587,
+                'sender_name': current_user.sender_name or current_user.username,
+                'has_password': bool(current_user.smtp_password)
+            }
+        })
+    
+    elif request.method == 'POST':
+        data = request.get_json()
+        
+        # Update user settings
+        if data.get('smtp_email'):
+            current_user.smtp_email = data.get('smtp_email', '').strip()
+        if data.get('smtp_password'):
+            current_user.smtp_password = data.get('smtp_password', '').strip()  # App password
+        if data.get('smtp_server'):
+            current_user.smtp_server = data.get('smtp_server', 'smtp.gmail.com').strip()
+        if data.get('smtp_port'):
+            current_user.smtp_port = int(data.get('smtp_port', 587))
+        if data.get('sender_name'):
+            current_user.sender_name = data.get('sender_name', current_user.username).strip()
+        
+        try:
+            db.session.commit()
+            return jsonify({
+                'success': True,
+                'message': 'Email settings saved successfully!'
+            })
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({
+                'success': False,
+                'message': f'Error saving settings: {str(e)}'
+            }), 500
+
 def get_email_list_path(email_list_type: str) -> str:
     """Get the CSV file path for the selected email list type"""
     mapping = {
