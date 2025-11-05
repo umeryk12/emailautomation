@@ -145,15 +145,17 @@ class EmailAutomation:
                         'notes', 'Notes', 'batch', 'Batch', 'description', 'Description'
                     ])
                     
-                    # Map status (for filtering)
+                    # Map status (for filtering) - optional
                     status = get_column_value(row, [
                         'status', 'Status', 'Status'
                     ])
                     
-                    # Filter: Only include ACTIVE companies
-                    if status.upper() != 'ACTIVE':
-                        logging.debug(f"Skipping {company_name} - Status is {status}, not ACTIVE")
-                        continue
+                    # Filter: Only include ACTIVE companies if status column exists
+                    # If no status column, include all companies
+                    if status:
+                        if status.upper() != 'ACTIVE':
+                            logging.debug(f"Skipping {company_name} - Status is {status}, not ACTIVE")
+                            continue
                     
                     # Validate required fields
                     if founder_email and '@' in founder_email and company_name:
@@ -236,9 +238,19 @@ This email was sent via automated cold email tool.
     def send_email(self, to_email: str, subject: str, body: str, config: Dict) -> bool:
         """Send email via SMTP"""
         try:
+            # Validate config has required fields
+            if not config.get('sender_email'):
+                logging.error("Missing sender_email in config")
+                return False
+            if not config.get('sender_password'):
+                logging.error("Missing sender_password in config")
+                return False
+            
             # Create message
             msg = MIMEMultipart()
-            msg['From'] = f"{config.get('sender_name', '')} <{config['sender_email']}>"
+            sender_name = config.get('sender_name', '')
+            sender_email = config['sender_email']
+            msg['From'] = f"{sender_name} <{sender_email}>" if sender_name else sender_email
             msg['To'] = to_email
             msg['Subject'] = subject
             
@@ -246,26 +258,36 @@ This email was sent via automated cold email tool.
             msg.attach(MIMEText(body, 'plain'))
             
             # Connect to SMTP server
-            server = smtplib.SMTP(config['smtp_server'], config['smtp_port'])
+            smtp_server = config.get('smtp_server', 'smtp.gmail.com')
+            smtp_port = config.get('smtp_port', 587)
+            
+            logging.info(f"Connecting to SMTP server: {smtp_server}:{smtp_port}")
+            server = smtplib.SMTP(smtp_server, smtp_port)
             server.starttls()
-            server.login(config['sender_email'], config['sender_password'])
+            
+            logging.info(f"Logging in as {sender_email}")
+            server.login(sender_email, config['sender_password'])
             
             # Send email
             text = msg.as_string()
-            server.sendmail(config['sender_email'], to_email, text)
+            logging.info(f"Sending email to {to_email}")
+            server.sendmail(sender_email, to_email, text)
             server.quit()
             
-            logging.info(f"Email sent successfully to {to_email}")
+            logging.info(f"✅ Email sent successfully to {to_email}")
             return True
             
-        except smtplib.SMTPAuthenticationError:
-            logging.error(f"SMTP Authentication failed. Check your email and password.")
+        except smtplib.SMTPAuthenticationError as e:
+            logging.error(f"❌ SMTP Authentication failed for {config.get('sender_email', 'unknown')}: {e}")
+            logging.error("Check your email and app password. Make sure you're using a Gmail App Password, not your regular password.")
             return False
         except smtplib.SMTPException as e:
-            logging.error(f"SMTP error sending email to {to_email}: {e}")
+            logging.error(f"❌ SMTP error sending email to {to_email}: {e}")
             return False
         except Exception as e:
-            logging.error(f"Error sending email to {to_email}: {e}")
+            logging.error(f"❌ Error sending email to {to_email}: {e}")
+            import traceback
+            logging.error(traceback.format_exc())
             return False
     
     def run(self, csv_file: str = None, dry_run: bool = False, skip_sent: bool = True, include_dry_run: bool = None):
