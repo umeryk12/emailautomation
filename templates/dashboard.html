@@ -1,14 +1,32 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard - Email Automation{% endblock %}
+{% block title %}Dashboard - Email Automation Tool{% endblock %}
 
 {% block content %}
 <div class="row mb-4">
     <div class="col-12">
         <h1 class="mb-0">
-            <i class="fas fa-tachometer-alt text-primary me-2"></i>Dashboard
+            <i class="fas fa-tachometer-alt text-primary me-2"></i>Email Automation Tool
         </h1>
-        <p class="text-muted">Welcome, {{ current_user.username }}! Start your email campaign.</p>
+        <p class="text-muted">Welcome, {{ current_user.username }}! Land jobs, grow your network, and automate cold emails.</p>
+    </div>
+</div>
+
+<!-- Tagline Banner -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="tagline">
+            <i class="fas fa-briefcase"></i>
+            Land Jobs
+            <i class="fas fa-arrow-right"></i>
+            <i class="fas fa-bullhorn"></i>
+            Marketing
+            <i class="fas fa-arrow-right"></i>
+            <i class="fas fa-envelope"></i>
+            Cold Emails
+            <span class="ms-3">|</span>
+            <span class="ms-3">Automate your outreach and grow your career</span>
+        </div>
     </div>
 </div>
 
@@ -45,7 +63,7 @@
     <div class="col-12">
         <div class="card">
             <div class="card-header bg-primary text-white">
-                <h5 class="mb-0"><i class="fas fa-rocket me-2"></i>Start New Campaign</h5>
+                <h5 class="mb-0"><i class="fas fa-rocket me-2"></i>Start New Campaign - Land Jobs & Marketing</h5>
             </div>
             <div class="card-body">
                 <div id="campaign-alert"></div>
@@ -63,14 +81,67 @@
                         </div>
                         
                         <div class="col-md-6 mb-3">
-                            <label for="template_id" class="form-label">Email Template</label>
-                            <select class="form-select" id="template_id" name="template_id">
-                                <option value="">Use Default Template</option>
-                                {% for template in templates %}
-                                <option value="{{ template.id }}">{{ template.name }}</option>
-                                {% endfor %}
-                            </select>
-                            <small class="text-muted">Choose a template or use default</small>
+                            <label for="email_limit" class="form-label">Email Limit</label>
+                            <input type="number" class="form-control" id="email_limit" name="email_limit" min="0" value="0" placeholder="0 = No limit">
+                            <small class="text-muted">Maximum emails to send (0 = send all)</small>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Template Option</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="template_option" id="template_default" value="default" checked>
+                            <label class="btn btn-outline-primary" for="template_default">
+                                <i class="fas fa-file-alt me-1"></i>Use Default Template
+                            </label>
+                            
+                            <input type="radio" class="btn-check" name="template_option" id="template_saved" value="saved">
+                            <label class="btn btn-outline-primary" for="template_saved">
+                                <i class="fas fa-folder me-1"></i>Use Saved Template
+                            </label>
+                            
+                            <input type="radio" class="btn-check" name="template_option" id="template_custom" value="custom">
+                            <label class="btn btn-outline-primary" for="template_custom">
+                                <i class="fas fa-edit me-1"></i>Write Custom Template
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Saved Template Selection -->
+                    <div class="mb-3" id="saved-template-section" style="display: none;">
+                        <label for="template_id" class="form-label">Select Saved Template</label>
+                        <select class="form-select" id="template_id" name="template_id">
+                            <option value="">Choose a template...</option>
+                            {% for template in templates %}
+                            <option value="{{ template.id }}">{{ template.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- Custom Template Editor -->
+                    <div id="custom-template-section" style="display: none;">
+                        <div class="mb-3">
+                            <label for="custom_subject" class="form-label">Email Subject</label>
+                            <input type="text" class="form-control" id="custom_subject" 
+                                   value="Partnership Opportunity - {company_name}" 
+                                   placeholder="Use {company_name}, {founder_name}, etc.">
+                            <small class="text-muted">Use placeholders: {company_name}, {founder_name}, {industry}, {sender_name}</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="custom_template" class="form-label">Email Template</label>
+                            <textarea class="form-control" id="custom_template" rows="12" 
+                                      placeholder="Write your email template here...&#10;&#10;Use placeholders:&#10;{company_name} - Company name&#10;{founder_name} - Founder's name&#10;{industry} - Industry&#10;{sender_name} - Your name&#10;{website} - Company website"></textarea>
+                            <small class="text-muted">
+                                <strong>Available placeholders:</strong> {company_name}, {founder_name}, {industry}, {sender_name}, {website}
+                            </small>
+                        </div>
+                        
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="save_template">
+                            <label class="form-check-label" for="save_template">
+                                Save this template for future use
+                            </label>
                         </div>
                     </div>
                     
@@ -263,18 +334,56 @@ $(document).ready(function() {
     updateStats();
     setInterval(updateStats, 5000); // Update every 5 seconds
     
+    // Template option switching
+    $('input[name="template_option"]').on('change', function() {
+        const option = $(this).val();
+        $('#saved-template-section').hide();
+        $('#custom-template-section').hide();
+        
+        if (option === 'saved') {
+            $('#saved-template-section').show();
+        } else if (option === 'custom') {
+            $('#custom-template-section').show();
+        }
+    });
+    
     // Campaign form
     $('#campaignForm').on('submit', function(e) {
         e.preventDefault();
-        const formData = {
-            email_list_type: $('#email_list_type').val(),
-            template_id: $('#template_id').val() || null
-        };
         
-        if (!formData.email_list_type) {
+        const email_list_type = $('#email_list_type').val();
+        const email_limit = $('#email_limit').val() || 0;
+        const template_option = $('input[name="template_option"]:checked').val();
+        
+        if (!email_list_type) {
             showAlert('campaign-alert', 'danger', 'Please select an email list');
             return;
         }
+        
+        let formData = {
+            email_list_type: email_list_type,
+            email_limit: parseInt(email_limit) || 0
+        };
+        
+        // Handle template based on selected option
+        if (template_option === 'saved') {
+            const template_id = $('#template_id').val();
+            if (!template_id) {
+                showAlert('campaign-alert', 'danger', 'Please select a saved template');
+                return;
+            }
+            formData.template_id = template_id;
+        } else if (template_option === 'custom') {
+            const custom_template = $('#custom_template').val();
+            if (!custom_template || !custom_template.trim()) {
+                showAlert('campaign-alert', 'danger', 'Please write your email template');
+                return;
+            }
+            formData.custom_template = custom_template;
+            formData.custom_subject = $('#custom_subject').val();
+            formData.save_template = $('#save_template').is(':checked');
+        }
+        // else: use default template (no template_id needed)
         
         const btn = $(this).find('button[type="submit"]');
         const originalText = btn.html();
