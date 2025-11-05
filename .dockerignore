@@ -1,0 +1,20 @@
+# Docker ignore
+.git
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+*.db
+*.sqlite
+*.sqlite3
+instance/
+.env
+.venv
+venv/
+.env*
+node_modules/
+results_*.csv
+user_data/
+user_templates/
+config.json
