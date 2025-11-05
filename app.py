@@ -393,6 +393,48 @@ def get_campaign(campaign_id):
         }
     })
 
+@app.route('/api/debug/csv-check', methods=['GET'])
+@login_required
+def debug_csv_check():
+    """Debug endpoint to check CSV files"""
+    import os
+    
+    csv_files = {
+        'ycombinatoremails.csv': os.path.exists('ycombinatoremails.csv'),
+        'companies.csv': os.path.exists('companies.csv')
+    }
+    
+    csv_info = {}
+    for filename, exists in csv_files.items():
+        if exists:
+            try:
+                with open(filename, 'r', encoding='utf-8') as f:
+                    lines = f.readlines()
+                    csv_info[filename] = {
+                        'exists': True,
+                        'rows': len(lines) - 1,  # Exclude header
+                        'header': lines[0].strip() if lines else 'empty'
+                    }
+            except Exception as e:
+                csv_info[filename] = {
+                    'exists': True,
+                    'error': str(e)
+                }
+        else:
+            csv_info[filename] = {'exists': False}
+    
+    return jsonify({
+        'success': True,
+        'csv_files': csv_info,
+        'cwd': os.getcwd(),
+        'user': {
+            'smtp_email': current_user.smtp_email,
+            'has_smtp_password': bool(current_user.smtp_password),
+            'smtp_server': current_user.smtp_server,
+            'smtp_port': current_user.smtp_port
+        }
+    })
+
 @app.route('/api/campaigns', methods=['GET'])
 @login_required
 def list_campaigns():
