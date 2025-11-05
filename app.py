@@ -16,6 +16,18 @@ from datetime import datetime
 from typing import Dict, List
 import threading
 import time
+import sys
+import logging
+
+# Configure logging to stdout so it appears in Railway logs
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger(__name__)
 
 # Import the email automation class
 from email_automation import EmailAutomation
@@ -358,10 +370,20 @@ def create_campaign():
     db.session.add(campaign)
     db.session.commit()
     
+    logger.info(f"✅ Campaign {campaign.id} created for user {current_user.id} ({current_user.email})")
+    logger.info(f"   Email list: {email_list_type}, Limit: {email_limit}")
+    logger.info(f"   User SMTP: {current_user.smtp_email}, Has password: {bool(current_user.smtp_password)}")
+    
     # Start campaign in background thread
-    thread = threading.Thread(target=run_campaign, args=(campaign.id,))
-    thread.daemon = True
-    thread.start()
+    try:
+        thread = threading.Thread(target=run_campaign, args=(campaign.id,))
+        thread.daemon = True
+        thread.start()
+        logger.info(f"✅ Background thread started for campaign {campaign.id}")
+    except Exception as e:
+        logger.error(f"❌ Failed to start background thread: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
     
     return jsonify({
         'success': True,
@@ -523,26 +545,35 @@ def get_email_list_path(email_list_type: str) -> str:
 
 def run_campaign(campaign_id: int):
     """Run email campaign in background thread"""
-    with app.app_context():
-        campaign = Campaign.query.get(campaign_id)
-        if not campaign:
-            print(f"Campaign {campaign_id} not found")
-            return
+    try:
+        logger.info(f"🚀 run_campaign() called for campaign {campaign_id}")
+        logger.info(f"   Thread ID: {threading.current_thread().ident}")
         
-        # Get user from campaign
-        user = User.query.get(campaign.user_id)
-        if not user:
-            campaign.status = 'failed'
+        with app.app_context():
+            campaign = Campaign.query.get(campaign_id)
+            if not campaign:
+                logger.error(f"❌ Campaign {campaign_id} not found in database")
+                return
+            
+            logger.info(f"✅ Campaign {campaign_id} found in database")
+            
+            # Get user from campaign
+            user = User.query.get(campaign.user_id)
+            if not user:
+                campaign.status = 'failed'
+                db.session.commit()
+                logger.error(f"❌ Campaign {campaign_id}: User {campaign.user_id} not found")
+                return
+            
+            logger.info(f"✅ User {user.id} ({user.email}) found for campaign {campaign_id}")
+            
+            campaign.status = 'running'
+            campaign.started_at = datetime.utcnow()
             db.session.commit()
-            print(f"Campaign {campaign_id}: User not found")
-            return
-        
-        campaign.status = 'running'
-        campaign.started_at = datetime.utcnow()
-        db.session.commit()
-        
-        print(f"Campaign {campaign_id}: Starting campaign for user {user.username}")
-        print(f"Campaign {campaign_id}: Email list type: {campaign.email_list_type}")
+            
+            logger.info(f"🏃 Campaign {campaign_id}: Status set to 'running'")
+            logger.info(f"   User: {user.username}")
+            logger.info(f"   Email list type: {campaign.email_list_type}")
         
         try:
             # Get template - either from database or custom
@@ -565,14 +596,17 @@ def run_campaign(campaign_id: int):
             
             # Get email list file
             csv_file = get_email_list_path(campaign.email_list_type)
-            print(f"Campaign {campaign_id}: Using CSV file: {csv_file}")
+            logger.info(f"📄 Campaign {campaign_id}: Using CSV file: {csv_file}")
+            logger.info(f"   Current directory: {os.getcwd()}")
+            logger.info(f"   CSV exists: {os.path.exists(csv_file)}")
             
             # Check if CSV file exists
             if not os.path.exists(csv_file):
                 campaign.status = 'failed'
                 campaign.failed_emails = 1
                 db.session.commit()
-                print(f"Campaign {campaign_id} failed: CSV file not found: {csv_file}")
+                logger.error(f"❌ Campaign {campaign_id} failed: CSV file not found: {csv_file}")
+                logger.error(f"   Files in directory: {os.listdir('.')}")
                 return
             
             # Check if user has SMTP credentials configured
@@ -580,11 +614,12 @@ def run_campaign(campaign_id: int):
                 campaign.status = 'failed'
                 campaign.failed_emails = 1
                 db.session.commit()
-                print(f"Campaign {campaign_id} failed: User has not configured SMTP credentials")
-                print(f"Campaign {campaign_id}: smtp_email={user.smtp_email}, has_password={bool(user.smtp_password)}")
+                logger.error(f"❌ Campaign {campaign_id} failed: User has not configured SMTP credentials")
+                logger.error(f"   smtp_email={user.smtp_email}")
+                logger.error(f"   has_password={bool(user.smtp_password)}")
                 return
             
-            print(f"Campaign {campaign_id}: User SMTP configured: {user.smtp_email}")
+            logger.info(f"✅ Campaign {campaign_id}: User SMTP configured: {user.smtp_email}")
             
             # Create user-specific config using user's SMTP settings
             user_config = {
@@ -630,22 +665,23 @@ def run_campaign(campaign_id: int):
                 campaign.status = 'failed'
                 campaign.failed_emails = 1
                 db.session.commit()
-                print(f"Campaign {campaign_id} failed: No companies to process")
+                logger.error(f"❌ Campaign {campaign_id} failed: No companies to process")
                 return
             
             campaign.total_emails = len(companies)
             db.session.commit()
             
             # Log that we're about to send emails
-            print(f"Campaign {campaign_id}: Starting to send {len(companies)} emails using {user.smtp_email}")
-            print(f"Campaign {campaign_id}: SMTP server: {user.smtp_server}:{user.smtp_port}")
-            print(f"Campaign {campaign_id}: CSV file: {csv_file}")
-            print(f"Campaign {campaign_id}: Companies loaded: {len(companies)}")
-            print(f"Campaign {campaign_id}: DRY RUN = False (will actually send emails)")
+            logger.info(f"📧 Campaign {campaign_id}: Starting to send {len(companies)} emails")
+            logger.info(f"   Using email: {user.smtp_email}")
+            logger.info(f"   SMTP server: {user.smtp_server}:{user.smtp_port}")
+            logger.info(f"   CSV file: {csv_file}")
+            logger.info(f"   Companies loaded: {len(companies)}")
+            logger.info(f"   DRY RUN = False (will actually send emails)")
             
             # Run automation with user's SMTP credentials (actual sending)
             # Set include_dry_run=False so we process all emails, not just new ones
-            print(f"Campaign {campaign_id}: Calling automation.run()...")
+            logger.info(f"🎯 Campaign {campaign_id}: Calling automation.run()...")
             
             # Progress callback to update campaign counts live
             def on_progress(sent_count: int, failed_count: int, company: dict):
@@ -653,7 +689,9 @@ def run_campaign(campaign_id: int):
                     campaign.sent_emails = sent_count
                     campaign.failed_emails = failed_count
                     db.session.commit()
-                except Exception:
+                    logger.info(f"📊 Campaign {campaign_id}: Progress - Sent: {sent_count}, Failed: {failed_count}")
+                except Exception as e:
+                    logger.error(f"❌ Progress update failed: {e}")
                     db.session.rollback()
             
             automation.run(
@@ -664,8 +702,9 @@ def run_campaign(campaign_id: int):
                 on_progress=on_progress
             )
             
-            print(f"Campaign {campaign_id}: Automation completed")
-            print(f"Campaign {campaign_id}: Sent count: {automation.sent_count}, Failed count: {automation.failed_count}")
+            logger.info(f"✅ Campaign {campaign_id}: Automation completed")
+            logger.info(f"   Sent count: {automation.sent_count}")
+            logger.info(f"   Failed count: {automation.failed_count}")
             
             # Update campaign status
             campaign.sent_emails = automation.sent_count
@@ -695,8 +734,8 @@ def run_campaign(campaign_id: int):
             import traceback
             error_msg = str(e)
             traceback_str = traceback.format_exc()
-            print(f"Campaign {campaign_id} failed: {error_msg}")
-            print(traceback_str)
+            logger.error(f"❌❌❌ Campaign {campaign_id} EXCEPTION: {error_msg}")
+            logger.error(traceback_str)
             
             campaign.status = 'failed'
             campaign.failed_emails = campaign.total_emails if campaign.total_emails > 0 else 1
@@ -709,6 +748,11 @@ def run_campaign(campaign_id: int):
                     f.write(f"Campaign {campaign_id} Error:\n{error_msg}\n\n{traceback_str}")
             except:
                 pass
+    except Exception as e:
+        # Catch ANY exception in the thread
+        import traceback
+        logger.error(f"❌❌❌ THREAD EXCEPTION for campaign {campaign_id}: {e}")
+        logger.error(traceback.format_exc())
 
 def get_default_template() -> str:
     """Get default email template"""
