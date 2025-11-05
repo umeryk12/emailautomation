@@ -430,17 +430,28 @@ def email_settings():
     elif request.method == 'POST':
         data = request.get_json()
         
+        if not data:
+            return jsonify({'success': False, 'message': 'No data provided'}), 400
+        
         # Update user settings
-        if data.get('smtp_email'):
-            current_user.smtp_email = data.get('smtp_email', '').strip()
-        if data.get('smtp_password'):
-            current_user.smtp_password = data.get('smtp_password', '').strip()  # App password
-        if data.get('smtp_server'):
-            current_user.smtp_server = data.get('smtp_server', 'smtp.gmail.com').strip()
-        if data.get('smtp_port'):
-            current_user.smtp_port = int(data.get('smtp_port', 587))
-        if data.get('sender_name'):
-            current_user.sender_name = data.get('sender_name', current_user.username).strip()
+        smtp_email = data.get('smtp_email', '').strip()
+        smtp_password = data.get('smtp_password', '').strip()
+        smtp_server = data.get('smtp_server', 'smtp.gmail.com').strip()
+        smtp_port = data.get('smtp_port', 587)
+        sender_name = data.get('sender_name', current_user.username).strip()
+        
+        # Update fields
+        if smtp_email:
+            current_user.smtp_email = smtp_email
+        if smtp_password:  # Only update if password is provided
+            current_user.smtp_password = smtp_password  # App password
+        current_user.smtp_server = smtp_server
+        try:
+            current_user.smtp_port = int(smtp_port)
+        except (ValueError, TypeError):
+            current_user.smtp_port = 587
+        if sender_name:
+            current_user.sender_name = sender_name
         
         try:
             db.session.commit()
@@ -450,9 +461,13 @@ def email_settings():
             })
         except Exception as e:
             db.session.rollback()
+            import traceback
+            error_msg = str(e)
+            print(f"Error saving settings: {error_msg}")
+            print(traceback.format_exc())
             return jsonify({
                 'success': False,
-                'message': f'Error saving settings: {str(e)}'
+                'message': f'Error saving settings: {error_msg}'
             }), 500
 
 def get_email_list_path(email_list_type: str) -> str:
