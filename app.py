@@ -577,50 +577,50 @@ def run_campaign(campaign_id: int):
             logger.info(f"   Email list type: {campaign.email_list_type}")
             
             try:
-            # Get template - either from database or custom
-            template_content = None
-            subject_template = None
-            
-            if campaign.custom_template_content:
-                # Use custom template written directly
-                template_content = campaign.custom_template_content
-                subject_template = campaign.custom_subject_template or 'Partnership Opportunity - {company_name}'
-            else:
-                # Get template from database
-                template = EmailTemplate.query.get(campaign.template_id)
-                if not template:
+                # Get template - either from database or custom
+                template_content = None
+                subject_template = None
+                
+                if campaign.custom_template_content:
+                    # Use custom template written directly
+                    template_content = campaign.custom_template_content
+                    subject_template = campaign.custom_subject_template or 'Partnership Opportunity - {company_name}'
+                else:
+                    # Get template from database
+                    template = EmailTemplate.query.get(campaign.template_id)
+                    if not template:
+                        campaign.status = 'failed'
+                        db.session.commit()
+                        return
+                    template_content = template.template_content
+                    subject_template = template.subject_template
+                
+                # Get email list file
+                csv_file = get_email_list_path(campaign.email_list_type)
+                logger.info(f"📄 Campaign {campaign_id}: Using CSV file: {csv_file}")
+                logger.info(f"   Current directory: {os.getcwd()}")
+                logger.info(f"   CSV exists: {os.path.exists(csv_file)}")
+                
+                # Check if CSV file exists
+                if not os.path.exists(csv_file):
                     campaign.status = 'failed'
+                    campaign.failed_emails = 1
                     db.session.commit()
+                    logger.error(f"❌ Campaign {campaign_id} failed: CSV file not found: {csv_file}")
+                    logger.error(f"   Files in directory: {os.listdir('.')}")
                     return
-                template_content = template.template_content
-                subject_template = template.subject_template
-            
-            # Get email list file
-            csv_file = get_email_list_path(campaign.email_list_type)
-            logger.info(f"📄 Campaign {campaign_id}: Using CSV file: {csv_file}")
-            logger.info(f"   Current directory: {os.getcwd()}")
-            logger.info(f"   CSV exists: {os.path.exists(csv_file)}")
-            
-            # Check if CSV file exists
-            if not os.path.exists(csv_file):
-                campaign.status = 'failed'
-                campaign.failed_emails = 1
-                db.session.commit()
-                logger.error(f"❌ Campaign {campaign_id} failed: CSV file not found: {csv_file}")
-                logger.error(f"   Files in directory: {os.listdir('.')}")
-                return
-            
-            # Check if user has SMTP credentials configured
-            if not user.smtp_email or not user.smtp_password:
-                campaign.status = 'failed'
-                campaign.failed_emails = 1
-                db.session.commit()
-                logger.error(f"❌ Campaign {campaign_id} failed: User has not configured SMTP credentials")
-                logger.error(f"   smtp_email={user.smtp_email}")
-                logger.error(f"   has_password={bool(user.smtp_password)}")
-                return
-            
-            logger.info(f"✅ Campaign {campaign_id}: User SMTP configured: {user.smtp_email}")
+                
+                # Check if user has SMTP credentials configured
+                if not user.smtp_email or not user.smtp_password:
+                    campaign.status = 'failed'
+                    campaign.failed_emails = 1
+                    db.session.commit()
+                    logger.error(f"❌ Campaign {campaign_id} failed: User has not configured SMTP credentials")
+                    logger.error(f"   smtp_email={user.smtp_email}")
+                    logger.error(f"   has_password={bool(user.smtp_password)}")
+                    return
+                
+                logger.info(f"✅ Campaign {campaign_id}: User SMTP configured: {user.smtp_email}")
             
             # Create user-specific config using user's SMTP settings
             user_config = {
