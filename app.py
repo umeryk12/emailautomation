@@ -551,7 +551,7 @@ def run_campaign(campaign_id: int):
                 'sender_email': user.smtp_email,
                 'sender_password': user.smtp_password,  # User's app password
                 'sender_name': user.sender_name or user.username,
-                'delay_between_emails': 30,
+                'delay_between_emails': 5,
                 'max_emails_per_day': 50,
                 'email_subject_template': subject_template,
                 'csv_file': csv_file
@@ -604,7 +604,23 @@ def run_campaign(campaign_id: int):
             # Run automation with user's SMTP credentials (actual sending)
             # Set include_dry_run=False so we process all emails, not just new ones
             print(f"Campaign {campaign_id}: Calling automation.run()...")
-            automation.run(csv_file=csv_file, dry_run=False, skip_sent=False, include_dry_run=False)
+            
+            # Progress callback to update campaign counts live
+            def on_progress(sent_count: int, failed_count: int, company: dict):
+                try:
+                    campaign.sent_emails = sent_count
+                    campaign.failed_emails = failed_count
+                    db.session.commit()
+                except Exception:
+                    db.session.rollback()
+            
+            automation.run(
+                csv_file=csv_file,
+                dry_run=False,
+                skip_sent=False,
+                include_dry_run=False,
+                on_progress=on_progress
+            )
             
             print(f"Campaign {campaign_id}: Automation completed")
             print(f"Campaign {campaign_id}: Sent count: {automation.sent_count}, Failed count: {automation.failed_count}")

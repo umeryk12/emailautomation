@@ -12,7 +12,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 import os
-from typing import List, Dict
+from typing import List, Dict, Optional, Callable
 import json
 
 # Configure logging
@@ -293,7 +293,7 @@ This email was sent via automated cold email tool.
             logging.error(traceback.format_exc())
             return False
     
-    def run(self, csv_file: str = None, dry_run: bool = False, skip_sent: bool = True, include_dry_run: bool = None):
+    def run(self, csv_file: str = None, dry_run: bool = False, skip_sent: bool = True, include_dry_run: bool = None, on_progress: Optional[Callable[[int, int, Dict], None]] = None):
         """Run the email automation"""
         csv_file = csv_file or self.config.get('csv_file', 'companies.csv')
         template = self.load_email_template()
@@ -393,6 +393,13 @@ This email was sent via automated cold email tool.
                         print(f"   Company: {company['company_name']}")
                         print(f"{'='*60}\n")
                 
+                # Progress callback for realtime UI updates
+                if on_progress is not None and not dry_run:
+                    try:
+                        on_progress(self.sent_count, self.failed_count, company)
+                    except Exception as _:
+                        pass
+
                 # Delay between emails to avoid rate limiting
                 if i < len(companies) and not dry_run:
                     delay = self.config.get('delay_between_emails', 30)
