@@ -95,7 +95,10 @@
                         </div>
                         <div class="col-md-3 mb-3">
                             <label for="smtp_port" class="form-label">Port</label>
-                            <input type="number" class="form-control" id="smtp_port" value="587">
+                            <select class="form-control" id="smtp_port" required>
+                                <option value="587">587 (TLS)</option>
+                                <option value="465" selected>465 (SSL) - Better for hosting</option>
+                            </select>
                         </div>
                     </div>
                     <button type="submit" class="btn btn-success">
