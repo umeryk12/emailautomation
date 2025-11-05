@@ -482,26 +482,25 @@ def get_email_list_path(email_list_type: str) -> str:
 def run_campaign(campaign_id: int):
     """Run email campaign in background thread"""
     with app.app_context():
-        try:
-            campaign = Campaign.query.get(campaign_id)
-            if not campaign:
-                print(f"Campaign {campaign_id} not found")
-                return
-            
-            # Get user from campaign
-            user = User.query.get(campaign.user_id)
-            if not user:
-                campaign.status = 'failed'
-                db.session.commit()
-                print(f"Campaign {campaign_id}: User not found")
-                return
-            
-            campaign.status = 'running'
-            campaign.started_at = datetime.utcnow()
+        campaign = Campaign.query.get(campaign_id)
+        if not campaign:
+            print(f"Campaign {campaign_id} not found")
+            return
+        
+        # Get user from campaign
+        user = User.query.get(campaign.user_id)
+        if not user:
+            campaign.status = 'failed'
             db.session.commit()
-            
-            print(f"Campaign {campaign_id}: Starting campaign for user {user.username}")
-            print(f"Campaign {campaign_id}: Email list type: {campaign.email_list_type}")
+            print(f"Campaign {campaign_id}: User not found")
+            return
+        
+        campaign.status = 'running'
+        campaign.started_at = datetime.utcnow()
+        db.session.commit()
+        
+        print(f"Campaign {campaign_id}: Starting campaign for user {user.username}")
+        print(f"Campaign {campaign_id}: Email list type: {campaign.email_list_type}")
         
         try:
             # Get template - either from database or custom
@@ -598,10 +597,17 @@ def run_campaign(campaign_id: int):
             # Log that we're about to send emails
             print(f"Campaign {campaign_id}: Starting to send {len(companies)} emails using {user.smtp_email}")
             print(f"Campaign {campaign_id}: SMTP server: {user.smtp_server}:{user.smtp_port}")
+            print(f"Campaign {campaign_id}: CSV file: {csv_file}")
+            print(f"Campaign {campaign_id}: Companies loaded: {len(companies)}")
+            print(f"Campaign {campaign_id}: DRY RUN = False (will actually send emails)")
             
             # Run automation with user's SMTP credentials (actual sending)
             # Set include_dry_run=False so we process all emails, not just new ones
+            print(f"Campaign {campaign_id}: Calling automation.run()...")
             automation.run(csv_file=csv_file, dry_run=False, skip_sent=False, include_dry_run=False)
+            
+            print(f"Campaign {campaign_id}: Automation completed")
+            print(f"Campaign {campaign_id}: Sent count: {automation.sent_count}, Failed count: {automation.failed_count}")
             
             # Update campaign status
             campaign.sent_emails = automation.sent_count
