@@ -23,6 +23,10 @@ wheels/
 .installed.cfg
 *.egg
 
+# Temporary/restore files
+*_restore.py
+*_backup.py
+
 # Flask
 instance/
 .webassets-cache
