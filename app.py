@@ -38,6 +38,7 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 # Ensure upload directory exists
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs('user_data', exist_ok=True)
+os.makedirs('instance', exist_ok=True)  # For SQLite database
 
 db = SQLAlchemy(app)
 login_manager = LoginManager()
