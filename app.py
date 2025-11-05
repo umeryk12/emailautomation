@@ -72,6 +72,8 @@ class User(UserMixin, db.Model):
     smtp_server = db.Column(db.String(100), default='smtp.gmail.com')
     smtp_port = db.Column(db.Integer, default=587)
     sender_name = db.Column(db.String(100), nullable=True)
+    email_provider = db.Column(db.String(20), default='gmail')  # 'gmail' or 'sendgrid'
+    sendgrid_api_key = db.Column(db.String(200), nullable=True)
     
     # Relationships
     templates = db.relationship('EmailTemplate', backref='user', lazy=True, cascade='all, delete-orphan')
@@ -610,24 +612,32 @@ def run_campaign(campaign_id: int):
                     logger.error(f"   Files in directory: {os.listdir('.')}")
                     return
                 
-                # Check if user has SMTP credentials configured
-                if not user.smtp_email or not user.smtp_password:
-                    campaign.status = 'failed'
-                    campaign.failed_emails = 1
-                    db.session.commit()
-                    logger.error(f"❌ Campaign {campaign_id} failed: User has not configured SMTP credentials")
-                    logger.error(f"   smtp_email={user.smtp_email}")
-                    logger.error(f"   has_password={bool(user.smtp_password)}")
-                    return
+                # Check if user has email credentials configured (SMTP or SendGrid)
+                if user.email_provider == 'sendgrid':
+                    if not user.sendgrid_api_key or not user.smtp_email:
+                        campaign.status = 'failed'
+                        campaign.failed_emails = 1
+                        db.session.commit()
+                        logger.error(f"❌ Campaign {campaign_id} failed: User has not configured SendGrid credentials")
+                        return
+                else:
+                    if not user.smtp_email or not user.smtp_password:
+                        campaign.status = 'failed'
+                        campaign.failed_emails = 1
+                        db.session.commit()
+                        logger.error(f"❌ Campaign {campaign_id} failed: User has not configured SMTP credentials")
+                        return
                 
-                logger.info(f"✅ Campaign {campaign_id}: User SMTP configured: {user.smtp_email}")
+                logger.info(f"✅ Campaign {campaign_id}: Email provider: {user.email_provider}")
                 
-                # Create user-specific config using user's SMTP settings
+                # Create user-specific config
                 user_config = {
+                    'email_provider': user.email_provider or 'gmail',
                     'smtp_server': user.smtp_server or 'smtp.gmail.com',
                     'smtp_port': user.smtp_port or 587,
                     'sender_email': user.smtp_email,
                     'sender_password': user.smtp_password,  # User's app password
+                    'sendgrid_api_key': user.sendgrid_api_key,
                     'sender_name': user.sender_name or user.username,
                     'delay_between_emails': 5,
                     'max_emails_per_day': 50,
