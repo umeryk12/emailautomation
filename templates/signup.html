@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}Sign Up - Email Automation{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+        <div class="card mt-5">
+            <div class="card-body p-5">
+                <h2 class="text-center mb-4">
+                    <i class="fas fa-user-plus text-primary me-2"></i>Create Account
+                </h2>
+                <p class="text-center text-muted mb-4">Start your email automation journey</p>
+                
+                <div id="alert-container"></div>
+                
+                <form id="signupForm">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Username</label>
+                        <input type="text" class="form-control" id="username" name="username" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="email" name="email" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Temporary Password</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                        <small class="text-muted">You can change this later</small>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary w-100 mb-3">
+                        <i class="fas fa-rocket me-2"></i>Create Account & Start
+                    </button>
+                </form>
+                
+                <div class="text-center">
+                    <p class="mb-0">Already have an account? <a href="{{ url_for('login') }}">Login</a></p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-body">
+                <h5 class="card-title"><i class="fas fa-info-circle me-2"></i>What happens next?</h5>
+                <ul class="list-unstyled mb-0">
+                    <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Account created instantly</li>
+                    <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Choose your email list (YC, Business, or GR)</li>
+                    <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Upload custom template or use default</li>
+                    <li class="mb-0"><i class="fas fa-check text-success me-2"></i>Start your email campaign</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    $('#signupForm').on('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = {
+            username: $('#username').val(),
+            email: $('#email').val(),
+            password: $('#password').val()
+        };
+        
+        const submitBtn = $(this).find('button[type="submit"]');
+        const originalText = submitBtn.html();
+        submitBtn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>Creating account...');
+        
+        $.ajax({
+            url: '{{ url_for("signup") }}',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(formData),
+            success: function(response) {
+                if (response.success) {
+                    showAlert('success', response.message);
+                    setTimeout(() => {
+                        window.location.href = response.redirect;
+                    }, 1500);
+                } else {
+                    showAlert('danger', response.message || 'Signup failed');
+                    submitBtn.prop('disabled', false).html(originalText);
+                }
+            },
+            error: function(xhr) {
+                const response = xhr.responseJSON;
+                showAlert('danger', response?.message || 'An error occurred');
+                submitBtn.prop('disabled', false).html(originalText);
+            }
+        });
+    });
+    
+    function showAlert(type, message) {
+        const alertHtml = `
+            <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+        $('#alert-container').html(alertHtml);
+    }
+});
+</script>
+{% endblock %}
+

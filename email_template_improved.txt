@@ -1,0 +1,33 @@
+Subject: Internship Opportunity - Developer/ML Engineer Position at {company_name}
+
+Hi {founder_name},
+
+I hope this message finds you well. I recently discovered {company_name} and was genuinely impressed by your innovative work in {industry}.
+
+About Me:
+I am a fresh developer with a strong passion for software development, machine learning, and generative AI. I'm actively seeking internship or entry-level opportunities where I can contribute meaningfully while learning from experienced professionals.
+
+My Projects:
+• **Automated TED Talk Filtering Pipeline**: Built a fully automated ML pipeline using computer vision (YOLO/HOG), voice activity detection, and parallel processing. Technologies: Python, OpenCV, yt-dlp
+• **Interview Coder Clone**: Developed a coding interview platform
+• **Cluecly Clone**: Built a functional clone of the Cluecly platform
+
+GitHub: {github_profile}
+
+Why I'm Interested:
+I'm particularly drawn to {company_name} because of your innovative approach in {industry}. I'm eager to:
+- Apply my development and ML skills to real-world challenges
+- Learn from your team's expertise
+- Contribute to impactful projects
+
+I would love the opportunity to discuss how I can contribute to {company_name} and learn from your team. Would you be available for a brief conversation?
+
+Thank you for your time and consideration.
+
+Best regards,
+{sender_name}
+
+---
+This email was sent via automated tool.
+
+

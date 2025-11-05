@@ -1,0 +1,32 @@
+Subject: Enthusiastic Developer/ML Engineer Seeking Opportunities - {company_name}
+
+Hi {founder_name},
+
+I hope this email finds you well. I recently discovered {company_name} and was inspired by your innovative work in {industry}.
+
+I am a fresh developer with a strong passion for:
+- Software development and building scalable applications
+- Machine learning and AI model development
+- Generative AI technologies and their real-world applications
+
+As I begin my career journey, I am actively seeking internship or entry-level positions where I can:
+✓ Apply my technical skills to solve real-world problems
+✓ Learn from experienced professionals in the field
+✓ Contribute meaningfully to projects while growing my expertise
+✓ Work on cutting-edge ML/AI initiatives
+
+I am particularly drawn to companies like {company_name} that are pushing the boundaries of technology. I would be thrilled to discuss how my enthusiasm, learning mindset, and technical foundation could add value to your team.
+
+Would you be open to a brief conversation about potential opportunities?
+
+Thank you for considering my application.
+
+Best regards,
+{sender_name}
+
+P.S. I'm eager to learn and contribute - even if there isn't an immediate opening, I'd appreciate any advice or mentorship you could offer.
+
+---
+This email was sent via automated cold email tool.
+
+
