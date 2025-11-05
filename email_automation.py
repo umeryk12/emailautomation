@@ -262,15 +262,23 @@ This email was sent via automated cold email tool.
             
             # Connect to SMTP server
             smtp_server = config.get('smtp_server', 'smtp.gmail.com')
-            smtp_port = config.get('smtp_port', 587)
+            smtp_port = int(config.get('smtp_port', 587))
             
             logging.info(f"Connecting to SMTP server: {smtp_server}:{smtp_port}")
-            server = smtplib.SMTP(smtp_server, smtp_port, timeout=30)
-            logging.info(f"✅ Connected to SMTP server")
             
-            logging.info(f"Starting TLS...")
-            server.starttls()
-            logging.info(f"✅ TLS started")
+            # Use SSL (port 465) or TLS (port 587) based on port
+            if smtp_port == 465:
+                # Use SMTP_SSL for port 465
+                import smtplib
+                server = smtplib.SMTP_SSL(smtp_server, smtp_port, timeout=30)
+                logging.info(f"✅ Connected to SMTP server using SSL (port 465)")
+            else:
+                # Use SMTP with STARTTLS for port 587
+                server = smtplib.SMTP(smtp_server, smtp_port, timeout=30)
+                logging.info(f"✅ Connected to SMTP server")
+                logging.info(f"Starting TLS...")
+                server.starttls()
+                logging.info(f"✅ TLS started")
             
             logging.info(f"Logging in as {sender_email}")
             server.login(sender_email, config['sender_password'])
