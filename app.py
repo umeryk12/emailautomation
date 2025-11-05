@@ -482,20 +482,26 @@ def get_email_list_path(email_list_type: str) -> str:
 def run_campaign(campaign_id: int):
     """Run email campaign in background thread"""
     with app.app_context():
-        campaign = Campaign.query.get(campaign_id)
-        if not campaign:
-            return
-        
-        # Get user from campaign
-        user = User.query.get(campaign.user_id)
-        if not user:
-            campaign.status = 'failed'
+        try:
+            campaign = Campaign.query.get(campaign_id)
+            if not campaign:
+                print(f"Campaign {campaign_id} not found")
+                return
+            
+            # Get user from campaign
+            user = User.query.get(campaign.user_id)
+            if not user:
+                campaign.status = 'failed'
+                db.session.commit()
+                print(f"Campaign {campaign_id}: User not found")
+                return
+            
+            campaign.status = 'running'
+            campaign.started_at = datetime.utcnow()
             db.session.commit()
-            return
-        
-        campaign.status = 'running'
-        campaign.started_at = datetime.utcnow()
-        db.session.commit()
+            
+            print(f"Campaign {campaign_id}: Starting campaign for user {user.username}")
+            print(f"Campaign {campaign_id}: Email list type: {campaign.email_list_type}")
         
         try:
             # Get template - either from database or custom
@@ -518,6 +524,15 @@ def run_campaign(campaign_id: int):
             
             # Get email list file
             csv_file = get_email_list_path(campaign.email_list_type)
+            print(f"Campaign {campaign_id}: Using CSV file: {csv_file}")
+            
+            # Check if CSV file exists
+            if not os.path.exists(csv_file):
+                campaign.status = 'failed'
+                campaign.failed_emails = 1
+                db.session.commit()
+                print(f"Campaign {campaign_id} failed: CSV file not found: {csv_file}")
+                return
             
             # Check if user has SMTP credentials configured
             if not user.smtp_email or not user.smtp_password:
@@ -525,7 +540,10 @@ def run_campaign(campaign_id: int):
                 campaign.failed_emails = 1
                 db.session.commit()
                 print(f"Campaign {campaign_id} failed: User has not configured SMTP credentials")
+                print(f"Campaign {campaign_id}: smtp_email={user.smtp_email}, has_password={bool(user.smtp_password)}")
                 return
+            
+            print(f"Campaign {campaign_id}: User SMTP configured: {user.smtp_email}")
             
             # Create user-specific config using user's SMTP settings
             user_config = {

@@ -104,35 +104,37 @@ class EmailAutomation:
                     return ''
                 
                 for row in reader:
-                    # Map company name (try multiple variations)
+                    # Map company name (try multiple variations - YC CSV uses "Organization Name")
                     company_name = get_column_value(row, [
-                        'company_name', 'Organization Name', 'organization_name', 
-                        'Company', 'company', 'Company Name'
+                        'Organization Name', 'organization_name', 'organization name',
+                        'company_name', 'Company', 'company', 'Company Name'
                     ])
                     
-                    # Map email (try multiple variations)
+                    # Map email (try multiple variations - YC CSV uses "Email")
                     founder_email = get_column_value(row, [
-                        'founder_email', 'Email', 'email', 'Founder Email',
+                        'Email', 'email',
+                        'founder_email', 'Founder Email',
                         'contact_email', 'Contact Email'
                     ])
                     
-                    # Map founder name (try multiple variations)
+                    # Map founder name (try multiple variations - YC CSV uses "Full Name")
                     founder_name = get_column_value(row, [
-                        'founder_name', 'Full Name', 'full_name', 'Founder Name',
+                        'Full Name', 'full_name', 'full name',
+                        'founder_name', 'Founder Name',
                         'Name', 'name'
                     ])
                     
-                    # If Full Name not found, try combining First Name + Last Name
+                    # If Full Name not found, try combining First Name + Last Name (YC CSV format)
                     if not founder_name:
-                        first_name = get_column_value(row, ['First Name', 'first_name', 'First_Name'])
-                        last_name = get_column_value(row, ['Last Name', 'last_name', 'Last_Name'])
+                        first_name = get_column_value(row, ['First Name', 'first_name', 'First_Name', 'First name'])
+                        last_name = get_column_value(row, ['Last Name', 'last_name', 'Last_Name', 'Last name'])
                         if first_name or last_name:
                             founder_name = f"{first_name} {last_name}".strip()
                     
-                    # Map website (try multiple variations)
+                    # Map website (try multiple variations - YC CSV uses "Organization Domain")
                     website = get_column_value(row, [
-                        'website', 'Organization Domain', 'organization_domain',
-                        'Website', 'domain', 'Domain', 'url', 'URL'
+                        'Organization Domain', 'organization_domain', 'organization domain',
+                        'website', 'Website', 'domain', 'Domain', 'url', 'URL'
                     ])
                     
                     # Map industry (optional)
@@ -140,14 +142,15 @@ class EmailAutomation:
                         'industry', 'Industry', 'sector', 'Sector', 'category', 'Category'
                     ]) or 'Technology'
                     
-                    # Map notes (optional)
+                    # Map notes (optional - YC CSV uses "Batch")
                     notes = get_column_value(row, [
-                        'notes', 'Notes', 'batch', 'Batch', 'description', 'Description'
+                        'Batch', 'batch',
+                        'notes', 'Notes', 'description', 'Description'
                     ])
                     
-                    # Map status (for filtering) - optional
+                    # Map status (for filtering) - YC CSV uses "Status" column
                     status = get_column_value(row, [
-                        'status', 'Status', 'Status'
+                        'Status', 'status', 'STATUS'
                     ])
                     
                     # Filter: Only include ACTIVE companies if status column exists
