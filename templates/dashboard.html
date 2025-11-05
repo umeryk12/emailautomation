@@ -589,6 +589,29 @@ function updateStats() {
     });
 }
 
+function loadEmailSettings() {
+    $.ajax({
+        url: '/api/settings',
+        method: 'GET',
+        success: function(response) {
+            if (response.success && response.settings) {
+                const s = response.settings;
+                $('#smtp_email').val(s.smtp_email || '');
+                $('#smtp_server').val(s.smtp_server || 'smtp.gmail.com');
+                $('#smtp_port').val(s.smtp_port || 587);
+                $('#sender_name').val(s.sender_name || '');
+                
+                if (s.has_password) {
+                    $('#smtp_password').attr('placeholder', 'Password already set (leave blank to keep current)');
+                    $('#settings-status').html('<div class="alert alert-info"><i class="fas fa-info-circle me-2"></i>Email is configured. You can update settings or start a campaign.</div>');
+                } else {
+                    $('#settings-status').html('<div class="alert alert-warning"><i class="fas fa-exclamation-triangle me-2"></i>Please configure your email settings to send emails.</div>');
+                }
+            }
+        }
+    });
+}
+
 function viewTemplate(id) {
     // TODO: Implement template view
     alert('Template view coming soon!');
