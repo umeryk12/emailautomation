@@ -549,6 +549,7 @@ def run_campaign(campaign_id: int):
         logger.info(f"🚀 run_campaign() called for campaign {campaign_id}")
         logger.info(f"   Thread ID: {threading.current_thread().ident}")
         
+        # IMPORTANT: Keep app context for entire function
         with app.app_context():
             campaign = Campaign.query.get(campaign_id)
             if not campaign:
@@ -574,8 +575,8 @@ def run_campaign(campaign_id: int):
             logger.info(f"🏃 Campaign {campaign_id}: Status set to 'running'")
             logger.info(f"   User: {user.username}")
             logger.info(f"   Email list type: {campaign.email_list_type}")
-        
-        try:
+            
+            try:
             # Get template - either from database or custom
             template_content = None
             subject_template = None
@@ -727,27 +728,28 @@ def run_campaign(campaign_id: int):
             else:
                 campaign.status = 'failed'
             
-            campaign.completed_at = datetime.utcnow()
-            db.session.commit()
-            
-        except Exception as e:
-            import traceback
-            error_msg = str(e)
-            traceback_str = traceback.format_exc()
-            logger.error(f"❌❌❌ Campaign {campaign_id} EXCEPTION: {error_msg}")
-            logger.error(traceback_str)
-            
-            campaign.status = 'failed'
-            campaign.failed_emails = campaign.total_emails if campaign.total_emails > 0 else 1
-            db.session.commit()
-            
-            # Log error to file for debugging
-            try:
-                error_log = f"user_data/user_{campaign.user_id}_error_{campaign_id}.log"
-                with open(error_log, 'w') as f:
-                    f.write(f"Campaign {campaign_id} Error:\n{error_msg}\n\n{traceback_str}")
-            except:
-                pass
+                campaign.completed_at = datetime.utcnow()
+                db.session.commit()
+                
+            except Exception as e:
+                import traceback
+                error_msg = str(e)
+                traceback_str = traceback.format_exc()
+                logger.error(f"❌❌❌ Campaign {campaign_id} EXCEPTION: {error_msg}")
+                logger.error(traceback_str)
+                
+                campaign.status = 'failed'
+                campaign.failed_emails = campaign.total_emails if campaign.total_emails > 0 else 1
+                db.session.commit()
+                
+                # Log error to file for debugging
+                try:
+                    error_log = f"user_data/user_{campaign.user_id}_error_{campaign_id}.log"
+                    with open(error_log, 'w') as f:
+                        f.write(f"Campaign {campaign_id} Error:\n{error_msg}\n\n{traceback_str}")
+                except:
+                    pass
+                    
     except Exception as e:
         # Catch ANY exception in the thread
         import traceback
