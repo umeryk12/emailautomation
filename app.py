@@ -610,9 +610,23 @@ def run_campaign(campaign_id: int):
             db.session.commit()
             
         except Exception as e:
+            import traceback
+            error_msg = str(e)
+            traceback_str = traceback.format_exc()
+            print(f"Campaign {campaign_id} failed: {error_msg}")
+            print(traceback_str)
+            
             campaign.status = 'failed'
+            campaign.failed_emails = campaign.total_emails if campaign.total_emails > 0 else 1
             db.session.commit()
-            print(f"Campaign {campaign_id} failed: {e}")
+            
+            # Log error to file for debugging
+            try:
+                error_log = f"user_data/user_{campaign.user_id}_error_{campaign_id}.log"
+                with open(error_log, 'w') as f:
+                    f.write(f"Campaign {campaign_id} Error:\n{error_msg}\n\n{traceback_str}")
+            except:
+                pass
 
 def get_default_template() -> str:
     """Get default email template"""
