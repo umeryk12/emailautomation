@@ -676,45 +676,68 @@ def init_database():
     """Initialize database and handle schema updates"""
     with app.app_context():
         try:
-            # Create all tables (will create new columns if model is updated)
+            # Create all tables (only creates if they don't exist)
+            # This will NOT error if tables already exist
             db.create_all()
             
-            # For existing databases, we need to handle new columns
-            # SQLite doesn't support ALTER TABLE ADD COLUMN easily
-            # So we'll try to add columns if they don't exist
+            # For existing databases, try to add new columns if they don't exist
+            # SQLite supports ALTER TABLE ADD COLUMN, but we need to check if column exists first
             try:
-                from sqlalchemy import text
-                inspector = db.inspect(db.engine)
-                columns = [col['name'] for col in inspector.get_columns('user')]
+                from sqlalchemy import text, inspect
+                inspector = inspect(db.engine)
                 
-                # Check if new columns exist, if not add them
-                if 'smtp_email' not in columns:
+                # Check if user table exists
+                if 'user' in inspector.get_table_names():
+                    columns = [col['name'] for col in inspector.get_columns('user')]
+                    
+                    # Check if new columns exist, if not add them
                     with db.engine.connect() as conn:
-                        conn.execute(text("ALTER TABLE user ADD COLUMN smtp_email VARCHAR(120)"))
-                        conn.commit()
-                if 'smtp_password' not in columns:
-                    with db.engine.connect() as conn:
-                        conn.execute(text("ALTER TABLE user ADD COLUMN smtp_password VARCHAR(255)"))
-                        conn.commit()
-                if 'smtp_server' not in columns:
-                    with db.engine.connect() as conn:
-                        conn.execute(text("ALTER TABLE user ADD COLUMN smtp_server VARCHAR(100) DEFAULT 'smtp.gmail.com'"))
-                        conn.commit()
-                if 'smtp_port' not in columns:
-                    with db.engine.connect() as conn:
-                        conn.execute(text("ALTER TABLE user ADD COLUMN smtp_port INTEGER DEFAULT 587"))
-                        conn.commit()
-                if 'sender_name' not in columns:
-                    with db.engine.connect() as conn:
-                        conn.execute(text("ALTER TABLE user ADD COLUMN sender_name VARCHAR(100)"))
-                        conn.commit()
+                        if 'smtp_email' not in columns:
+                            try:
+                                conn.execute(text("ALTER TABLE user ADD COLUMN smtp_email VARCHAR(120)"))
+                                conn.commit()
+                            except Exception as e:
+                                print(f"Note: Could not add smtp_email column: {e}")
+                        
+                        if 'smtp_password' not in columns:
+                            try:
+                                conn.execute(text("ALTER TABLE user ADD COLUMN smtp_password VARCHAR(255)"))
+                                conn.commit()
+                            except Exception as e:
+                                print(f"Note: Could not add smtp_password column: {e}")
+                        
+                        if 'smtp_server' not in columns:
+                            try:
+                                conn.execute(text("ALTER TABLE user ADD COLUMN smtp_server VARCHAR(100) DEFAULT 'smtp.gmail.com'"))
+                                conn.commit()
+                            except Exception as e:
+                                print(f"Note: Could not add smtp_server column: {e}")
+                        
+                        if 'smtp_port' not in columns:
+                            try:
+                                conn.execute(text("ALTER TABLE user ADD COLUMN smtp_port INTEGER DEFAULT 587"))
+                                conn.commit()
+                            except Exception as e:
+                                print(f"Note: Could not add smtp_port column: {e}")
+                        
+                        if 'sender_name' not in columns:
+                            try:
+                                conn.execute(text("ALTER TABLE user ADD COLUMN sender_name VARCHAR(100)"))
+                                conn.commit()
+                            except Exception as e:
+                                print(f"Note: Could not add sender_name column: {e}")
+                else:
+                    # Table doesn't exist, db.create_all() will create it with all columns
+                    pass
             except Exception as e:
                 # Columns might already exist or database might not support ALTER
-                print(f"Note: Could not check/add columns: {e}")
-                # Continue anyway - SQLAlchemy will handle it
+                print(f"Note: Could not check/add columns (this is usually fine): {e}")
+                # Continue anyway - db.create_all() should handle it
         except Exception as e:
-            print(f"Database initialization: {e}")
-            # Continue anyway
+            # Only print error if it's not about table already existing
+            if "already exists" not in str(e).lower():
+                print(f"Database initialization warning: {e}")
+            # Continue anyway - tables might already exist which is fine
 
 init_database()
 
